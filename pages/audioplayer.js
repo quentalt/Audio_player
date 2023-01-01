@@ -31,112 +31,110 @@ export default function AudioPlayer() {
     const [currentTrack, setCurrentTrack] = useState(null);
     const [audio, setAudio] = useState(null);
     const [progress, setProgress] = useState(0);
+    const [duration, setDuration] = useState(0);
+    const [trackList, setTrackList] = useState([]);
+    const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
 
     const {loading, error, data} = useQuery(ALLTRACKS);
 
-    if (loading) return <p>Loading...</p>;
-    if (error) return <p>Error :(</p>;
 
+    useEffect(() => {
+        if (data) {
+            setTrackList(data.diffusionsOfShowByUrl.edges);
+            setCurrentTrack(data.diffusionsOfShowByUrl.edges[0].node);
+        }
+    }
+    , [data]);
 
-
-
-    const togglePlay = () => {
-        if (isPlaying) {
-            audio.pause();
-        } else {
-            audio.play();
+    useEffect(() => {
+        if (currentTrack) {
+            setAudio(new Audio(currentTrack.podcastEpisode.url));
         }
     }
 
-    const nextTrack = () => {
-        const index = tracks.findIndex((track) => track.node.id === currentTrack.node.id);
-        const nextTrack = tracks[index + 1];
-        if (nextTrack) {
-            setCurrentTrack(nextTrack.node);
+    , [currentTrack]);
+
+    useEffect(() => {
+        if (audio) {
+            if (isPlaying) {
+                audio.play();
+            } else {
+                audio.pause();
+            }
         }
     }
 
-    const prevTrack = () => {
-        const index = tracks.findIndex((track) => track.node.id === currentTrack.node.id);
-        const prevTrack = tracks[index - 1];
-        if (prevTrack) {
-            setCurrentTrack(prevTrack.node);
+    , [isPlaying]);
+
+    useEffect(() => {
+if (audio) {
+            audio.addEventListener('timeupdate', () => {
+                setProgress(audio.currentTime);
+                setDuration(audio.duration);
+            });
         }
     }
 
-    const onEnded = () => {
-        nextTrack();
-        audio.play();
+    , [audio]);
+
+    const handlePlayPause = () => {
+        setIsPlaying(!isPlaying);
     }
 
-    const onTimeUpdate = () => {
-        const currentTime = audio.currentTime;
-        const duration = audio.duration;
-        setProgress((currentTime / duration) * 100);
+    const handleNextTrack = () => {
+        if (currentTrackIndex < trackList.length - 1) {
+            setCurrentTrackIndex(currentTrackIndex + 1);
+            setCurrentTrack(trackList[currentTrackIndex + 1].node);
+        }
     }
 
-    const onLoadedMetadata = () => {
-        setProgress(0);
+    const handlePrevTrack = () => {
+        if (currentTrackIndex > 0) {
+            setCurrentTrackIndex(currentTrackIndex - 1);
+            setCurrentTrack(trackList[currentTrackIndex - 1].node);
+        }
     }
 
-    const onLoadedData = () => {
-        setAudio(audio);
+    const handleProgress = (e) => {
+        setProgress(e.target.value);
+        audio.currentTime = e.target.value;
     }
-
-    const onPlay = () => {
-        setIsPlaying(true);
-    }
-
-    const onPause = () => {
-        setIsPlaying(false);
-    }
-
-    let tracks = data.diffusionsOfShowByUrl.edges;
 
     return (
         <div>
-            <Card sx={{display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
-                <CardMedia
-                    component="img"
-                    sx={{width: 151}}
-                    image="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d6/France_Culture_logo_2021.svg/800px-France_Culture_logo_2021.svg.png"
-                    alt="Live from space album cover"
-                />
-                <Box sx={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'}}>
-                    <CardContent sx={{flex: '1 0 auto'}}>
-                        <Typography variant="subtitle1" color="text.secondary">
-                            {tracks ? tracks[0].node.podcastEpisode.title : 'Select a track'}
-                            <Typography variant="body1" color="text.secondary" >
-                                {tracks[0].node.published_date}
+            {currentTrack && (
+                <Card sx={{display: 'flex', width: '50%', margin: 'auto', marginTop: '20px'}}>
+                    <CardMedia
+                        component="img"
+                        sx={{width: 151}}
+                        image="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d6/France_Culture_logo_2021.svg/800px-France_Culture_logo_2021.svg.png"
+                        alt="France culture"
+                    />
+                    <Box sx={{display: 'flex', flexDirection:'column' , justifyContent: 'center', alignItems: 'center'}}>
+                        <CardContent sx={{flex: '1 0 auto'}}>
+                            <Typography component="div" variant="h5">
+                                {currentTrack.podcastEpisode.title}
                             </Typography>
-                        </Typography>
-                    </CardContent>
-                    <CardActions sx={{display: 'flex', justifyContent: 'center', alignItems: 'center'}}>
-                        <IconButton aria-label="previous" onClick={prevTrack}>
-                            <SkipPreviousRounded/>
-                        </IconButton>
-                        <IconButton aria-label="play/pause" onClick={togglePlay}>
-                            {isPlaying ? <PauseCircle/> : <PlayCircle/>}
-                        </IconButton>
-                        <IconButton aria-label="next" onClick={nextTrack}>
-                            <SkipNextIcon/>
-                        </IconButton>
-                    </CardActions>
-                </Box>
-            </Card>
-            <audio
-              src={currentTrack ? currentTrack.podcastEpisode.url :  tracks[0].node.podcastEpisode.url}
-                ref={(ref) => {
-                    setAudio(ref);
-                }
-                }
-                onLoadedMetadata={onLoadedMetadata}
-                onLoadedData={onLoadedData}
-                onTimeUpdate={onTimeUpdate}
-                onPlay={onPlay}
-                onPause={onPause}
-                onEnded={onEnded}
-            />
+                            <Typography variant="subtitle1" color="text.secondary" component="div">
+                                 {currentTrack.published_date}
+                            </Typography>
+                        </CardContent>
+                        <CardActions sx={{display: 'flex', justifyContent: 'space-between'}}>
+                            <IconButton aria-label="previous" onClick={handlePrevTrack}>
+                                <SkipPreviousRounded/>
+                            </IconButton>
+                            <IconButton aria-label="play/pause" onClick={handlePlayPause}>
+                                {isPlaying ? <PauseCircle/> : <PlayCircle/>}
+                            </IconButton>
+                            <IconButton aria-label="next" onClick={handleNextTrack}>
+                                <SkipNextIcon/>
+                            </IconButton>
+                            <input type="range" min={0} max={duration} value={progress} onChange={handleProgress}/>
+                        </CardActions>
+                    </Box>
+                </Card>
+            )}
         </div>
-    )
+    );
 }
+
